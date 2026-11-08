@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="ml">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>പണിമുടക്ക് – പ്രൊഫൈൽ ഫ്രെയിം</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anek+Malayalam:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0a1a4a;--bg2:#05123a;--card:#0f2562;--line:#2c4690;--ink:#f2f6ff;--mute:#a9bbe6;--accent:#bff0ff;--btn:#1f56d6;--btn2:#3a73ff;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{color-scheme:dark;scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:linear-gradient(160deg,var(--bg),var(--bg2));color:var(--ink);font-family:"Anek Malayalam","Noto Sans Malayalam","Segoe UI",system-ui,sans-serif;min-height:100vh}
+.wrap{max-width:1040px;margin:0 auto;padding:22px 16px 40px;display:grid;gap:22px;grid-template-columns:1fr}
+@media(min-width:860px){.wrap{grid-template-columns:340px 1fr;align-items:start}}
+h1{font-size:1.7rem;line-height:1.15;margin:0 0 4px;font-weight:800;color:#fff}
+.sub{color:var(--accent);margin:0 0 18px;font-size:1.05rem}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px}
+label{display:block;font-weight:600;margin:0 0 6px}
+.step{display:flex;gap:10px;align-items:center;margin-bottom:6px}
+.step b{width:26px;height:26px;border-radius:50%;background:var(--accent);color:#05194e;display:grid;place-items:center;font-size:.9rem}
+input[type=text]{width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:#071447;color:#fff;font:inherit;font-size:1.05rem}
+input[type=text]:focus{outline:2px solid var(--btn2);border-color:transparent}
+.file{display:block;border:2px dashed var(--line);border-radius:14px;padding:16px;text-align:center;cursor:pointer;color:var(--accent);background:#071447}
+.file:hover{border-color:var(--btn2)}
+.file input{display:none}
+.field{margin-bottom:18px}
+input[type=range]{width:100%;accent-color:var(--btn2)}
+button{font:inherit;font-weight:600;border:0;border-radius:12px;padding:13px 16px;cursor:pointer;width:100%;background:var(--btn);color:#fff;font-size:1.05rem}
+button:hover:not(:disabled){background:var(--btn2)}
+button:disabled{opacity:.45;cursor:not-allowed}
+.hint{color:var(--mute);font-size:.88rem;margin:6px 0 0}
+.stage{display:flex;flex-direction:column;align-items:center;gap:10px}
+canvas{width:100%;max-width:520px;height:auto;border-radius:12px;box-shadow:0 18px 50px rgba(0,0,0,.45);touch-action:none;cursor:grab;background:#000}
+canvas.drag{cursor:grabbing}
+#out{display:none;max-width:520px;width:100%;text-align:center}
+#out img{width:100%;border-radius:12px}
+#msg{min-height:1.3em;font-size:.92rem;color:var(--accent);margin-top:10px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <section class="panel">
+    <h1>ഞാനും പങ്കെടുക്കും</h1>
+    <p class="sub">പ്രൊഫൈൽ ഫ്രെയിം ഉണ്ടാക്കാം · Profile Frame Maker</p>
+
+    <div class="field">
+      <div class="step"><b>1</b><label for="photo" style="margin:0">ഫോട്ടോ / Photo</label></div>
+      <label class="file" for="photo"><span id="fname">ഫോട്ടോ തിരഞ്ഞെടുക്കുക · Choose photo</span><input id="photo" type="file" accept="image/*"></label>
+    </div>
+
+    <div class="field">
+      <div class="step"><b>2</b><label for="name" style="margin:0">പേര് / Name</label></div>
+      <input id="name" type="text" maxlength="40" placeholder="നിങ്ങളുടെ പേര് എഴുതുക" autocomplete="off">
+    </div>
+
+    <div class="field" id="zoomBox" style="display:none">
+      <div class="step"><b>3</b><label for="zoom" style="margin:0">സൂം / Zoom</label></div>
+      <input id="zoom" type="range" min="1" max="3" step="0.01" value="1">
+      <p class="hint">ഫോട്ടോ വലിച്ച് (drag) ശരിയായ സ്ഥാനത്ത് ആക്കാം.</p>
+    </div>
+
+    <button id="dl" disabled>ഡൗൺലോഡ് ചെയ്യുക · Download</button>
+    <div id="msg"></div>
+  </section>
+
+  <section class="stage">
+    <canvas id="cv" width="1638" height="2048" aria-label="Poster preview"></canvas>
+    <div id="out"><img id="outimg" alt="Your poster"><p class="hint">ചിത്രത്തിൽ അമർത്തിപ്പിടിച്ച് (long-press) / right-click ചെയ്ത് സേവ് ചെയ്യുക.</p></div>
+  </section>
+</div>
+
+<script>
+const BG_SRC = "poster.jpg"; // put your poster image next to this file
+// Photo window (inside the white frame line) and name bar, in poster pixels
+const PH = {x:930, y:415, w:650, h:1105, r:100};
+const BAR = {x:884, y:1322, w:697, h:102, color:"#05194e", cx:1250};
+// Watermark (your name). Change the text, or set to "" to remove it.
+const WATERMARK = "അർഷദ് കാരക്കുന്ന്";
+const FONT = '"Anek Malayalam","Noto Sans Malayalam",sans-serif';
+
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+const $ = id => document.getElementById(id);
+let bg = new Image(), photo = null, zoom = 1, ox = 0, oy = 0;
+
+function rr(x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
+}
+function geom(){
+  const base = Math.max(PH.w/photo.width, PH.h/photo.height), s = base*zoom;
+  const w = photo.width*s, h = photo.height*s;
+  const mx = Math.max(0,(w-PH.w)/2), my = Math.max(0,(h-PH.h)/2);
+  ox = Math.min(mx,Math.max(-mx,ox)); oy = Math.min(my,Math.max(-my,oy));
+  return {w,h,x:PH.x+PH.w/2+ox-w/2,y:PH.y+PH.h/2+oy-h/2,mx,my};
+}
+function draw(forExport){
+  ctx.clearRect(0,0,cv.width,cv.height);
+  ctx.drawImage(bg,0,0,cv.width,cv.height);
+  // photo
+  ctx.save(); rr(PH.x,PH.y,PH.w,PH.h,PH.r); ctx.clip();
+  if(photo){ const g=geom(); ctx.drawImage(photo,g.x,g.y,g.w,g.h); }
+  else if(!forExport){
+    ctx.fillStyle='#1b2a5c'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.font='600 64px '+FONT; ctx.fillText('ഫോട്ടോ ഇവിടെ',PH.x+PH.w/2,PH.y+PH.h/2-30);
+    ctx.font='400 44px '+FONT; ctx.fillText('Your photo here',PH.x+PH.w/2,PH.y+PH.h/2+40);
+  }
+  ctx.restore();
+  // name bar
+  ctx.fillStyle = BAR.color; ctx.fillRect(BAR.x,BAR.y,BAR.w,BAR.h);
+  const name = $('name').value.trim();
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  let txt = name || (forExport ? '' : 'നിങ്ങളുടെ പേര്');
+  ctx.fillStyle = name ? '#fff' : '#5a74b8';
+  let size = 64; const maxW = 610;
+  do { ctx.font = '600 '+size+'px '+FONT; size -= 2; } while(ctx.measureText(txt).width > maxW && size > 26);
+  ctx.fillText(txt, BAR.cx, BAR.y + BAR.h/2 + 4);
+  // watermark, vertical on the left edge
+  if(WATERMARK){
+    ctx.save(); ctx.translate(34, 1000); ctx.rotate(-Math.PI/2);
+    ctx.font = '600 30px '+FONT; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.shadowColor='rgba(0,0,0,.35)'; ctx.shadowBlur=4;
+    ctx.fillStyle='rgba(255,255,255,.6)'; ctx.fillText(WATERMARK, 0, 0); ctx.restore();
+  }
+  $('dl').disabled = !(photo && name);
+}
+bg.onload = () => { draw(); };
+bg.onerror = () => { $('msg').textContent = 'poster.jpg കണ്ടെത്താനായില്ല · Poster image not found. Upload poster.jpg next to index.html (same folder, exact name).'; };
+bg.src = BG_SRC;
+if(document.fonts){ document.fonts.load('600 40px "Anek Malayalam"','അആ').then(()=>draw()); }
+
+$('name').addEventListener('input', async ()=>{
+  if(document.fonts) try{ await document.fonts.load('600 40px "Anek Malayalam"', $('name').value||'അ'); }catch(e){}
+  draw();
+});
+$('photo').addEventListener('change', e=>{
+  const f = e.target.files[0]; if(!f) return;
+  const fr = new FileReader();
+  fr.onload = () => {
+    const im = new Image();
+    im.onload = () => { photo = im; zoom = 1; ox = oy = 0; $('zoom').value = 1; $('zoomBox').style.display='block'; $('fname').textContent = f.name; draw(); };
+    im.src = fr.result;
+  };
+  fr.readAsDataURL(f);
+});
+$('zoom').addEventListener('input', e=>{ zoom = +e.target.value; draw(); });
+
+// drag to reposition
+let drag = null;
+function toCanvas(e){ const r = cv.getBoundingClientRect(); return {x:(e.clientX-r.left)*cv.width/r.width, y:(e.clientY-r.top)*cv.height/r.height}; }
+cv.addEventListener('pointerdown', e=>{ if(!photo) return; drag = {p:toCanvas(e), ox, oy}; cv.setPointerCapture(e.pointerId); cv.classList.add('drag'); });
+cv.addEventListener('pointermove', e=>{ if(!drag) return; const p = toCanvas(e); ox = drag.ox + (p.x-drag.p.x); oy = drag.oy + (p.y-drag.p.y); draw(); });
+['pointerup','pointercancel'].forEach(t=>cv.addEventListener(t,()=>{drag=null;cv.classList.remove('drag');}));
+cv.addEventListener('wheel', e=>{ if(!photo) return; e.preventDefault(); zoom = Math.min(3,Math.max(1,zoom - e.deltaY*0.001)); $('zoom').value = zoom; draw(); }, {passive:false});
+
+// download
+function toBlob(){ return new Promise(res=>cv.toBlob(res,'image/png')); }
+$('dl').addEventListener('click', async ()=>{
+  draw(true);
+  const blob = await toBlob();
+  draw();
+  const nm = ($('name').value.trim().replace(/[^\p{L}\p{N}]+/gu,'-').replace(/^-|-$/g,'') || 'poster');
+  let saved = false;
+  try{
+    const d = window.claude && await claude.use('downloads');
+    if(d){ await d.save({filename:'panimudakku-'+nm+'.png', data:blob}); saved = true; $('msg').textContent = 'സേവ് ചെയ്തു ✓'; }
+  }catch(err){ if(err && err.code==='declined'){ $('msg').textContent=''; return; } }
+  if(!saved){
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'panimudakku-'+nm+'.png';
+    document.body.appendChild(a); a.click(); a.remove();
+    const fr = new FileReader();
+    fr.onload = ()=>{ $('outimg').src = fr.result; $('out').style.display='block'; $('msg').textContent='താഴെയുള്ള ചിത്രം സേവ് ചെയ്യുക ↓'; $('out').scrollIntoView({behavior:'smooth'}); };
+    fr.readAsDataURL(blob);
+  }
+});
+</script>
+</body>
+</html>
